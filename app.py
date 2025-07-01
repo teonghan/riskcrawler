@@ -20,26 +20,28 @@ USER_AGENTS = [
 ]
 NAMESPACES = {'content': 'http://purl.org/rss/1.0/modules/content/'}
 
-def fetch_rss_feed(url):
+def fetch_rss_feed(url, log):
     headers = {'User-Agent': random.choice(USER_AGENTS)}
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
+        log.append(f"[✓] RSS fetched: {url}")
         return ET.fromstring(response.content)
     except (requests.RequestException, ET.ParseError) as e:
-        st.warning(f"Error fetching RSS feed from {url}: {e}")
+        log.append(f"[✗] Error fetching RSS feed from {url}: {e}")
         return None
 
-def fetch_body_content(url):
+def fetch_body_content(url, log):
     headers = {'User-Agent': random.choice(USER_AGENTS)}
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
         article_tag = soup.find('article')
+        log.append(f"[✓] Article fetched: {url}")
         return article_tag.get_text() if article_tag else "Content not available"
     except requests.RequestException as e:
-        st.warning(f"Error fetching article from {url}: {e}")
+        log.append(f"[✗] Error fetching article from {url}: {e}")
         return "Content not available"
 
 st.set_page_config(page_title="RSS Feed Crawler", layout="wide")
@@ -53,39 +55,52 @@ selected_feeds = st.multiselect(
 crawl_button = st.button("Crawl News Feeds")
 
 data = []
+debug_log = []
 
 if crawl_button and selected_feeds:
     with st.spinner("Crawling selected RSS feeds..."):
+        # Count total articles for progress bar
+        # First, get number of articles for all feeds (optional, otherwise use approximation)
+        article_count = 0
+        temp_articles = []
         for feed_url in selected_feeds:
-            feed = fetch_rss_feed(feed_url)
+            feed = fetch_rss_feed(feed_url, debug_log)
             if feed:
-                for item in feed.findall('.//item'):
-                    content_encoded = item.find('content:encoded', NAMESPACES)
-                    title = item.find('title').text if item.find('title') is not None else "No title"
-                    description = item.find('description').text if item.find('description') is not None else "No description"
-                    link = item.find('link').text if item.find('link') is not None else "No link"
-                    date = item.find('pubDate').text if item.find('pubDate') is not None else "No date"
+                articles = list(feed.findall('.//item'))
+                temp_articles.extend([(feed_url, item) for item in articles])
+        article_count = len(temp_articles)
+        progress = st.progress(0)
+        completed = 0
 
-                    if content_encoded is not None and content_encoded.text and content_encoded.text.strip():
-                        soup = BeautifulSoup(content_encoded.text, 'html.parser')
-                        article_content = soup.get_text()
-                    elif description:
-                        soup = BeautifulSoup(description, 'html.parser')
-                        article_content = soup.get_text()
-                    else:
-                        article_content = fetch_body_content(link)
+        for feed_url, item in temp_articles:
+            content_encoded = item.find('content:encoded', NAMESPACES)
+            title = item.find('title').text if item.find('title') is not None else "No title"
+            description = item.find('description').text if item.find('description') is not None else "No description"
+            link = item.find('link').text if item.find('link') is not None else "No link"
+            date = item.find('pubDate').text if item.find('pubDate') is not None else "No date"
 
-                    # Only keep a short preview of the article for the table
-                    preview = article_content[:300] + ('...' if len(article_content) > 300 else '')
-                    data.append([title, link, preview, date])
-                    sleep(2)  # Respectful crawling
+            if content_encoded is not None and content_encoded.text and content_encoded.text.strip():
+                soup = BeautifulSoup(content_encoded.text, 'html.parser')
+                article_content = soup.get_text()
+            elif description:
+                soup = BeautifulSoup(description, 'html.parser')
+                article_content = soup.get_text()
+            else:
+                article_content = fetch_body_content(link, debug_log)
+
+            preview = article_content[:300] + ('...' if len(article_content) > 300 else '')
+            data.append([title, link, preview, date])
+
+            completed += 1
+            progress.progress(completed / article_count)
+            debug_log.append(f"[{completed}/{article_count}] '{title}' scraped from {feed_url}")
+            sleep(1)  # Respectful crawling
 
     if data:
         df = pd.DataFrame(data, columns=['Title', 'Link', 'Article Preview', 'Date'])
         st.success("Crawling completed! See the DataFrame below.")
         st.dataframe(df, use_container_width=True)
 
-        # Download as CSV
         csv_buffer = io.StringIO()
         df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
         st.download_button(
@@ -96,6 +111,9 @@ if crawl_button and selected_feeds:
         )
     else:
         st.info("No articles found.")
+
+    with st.expander("Show Debug Log"):
+        st.text('\n'.join(debug_log))
+
 else:
     st.info("Select at least one RSS feed and click 'Crawl News Feeds'.")
-

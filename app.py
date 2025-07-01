@@ -7,13 +7,18 @@ import pandas as pd
 import io
 from time import sleep
 from nltk.sentiment import SentimentIntensityAnalyzer
+from nltk.stem import WordNetLemmatizer
 import nltk
 from collections import Counter
 from sklearn.feature_extraction.text import CountVectorizer
 import string
 
 nltk.download('vader_lexicon')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+
 sia = SentimentIntensityAnalyzer()
+lemmatizer = WordNetLemmatizer()
 
 # --- Configurations ---
 RSS_FEEDS_DICT = {
@@ -41,6 +46,24 @@ def fetch_rss_feed(url, log):
     except (requests.RequestException, ET.ParseError) as e:
         log.append(f"[✗] Error fetching RSS feed from {url}: {e}")
         return None
+
+def get_keywords_lemmatized(texts, n=50):
+    vectorizer = CountVectorizer(stop_words='english', lowercase=True, token_pattern=r'\b\w{3,}\b')
+    X = vectorizer.fit_transform(texts)
+    vocab = vectorizer.get_feature_names_out()
+    # Lemmatize vocabulary
+    lemmatized_vocab = [lemmatizer.lemmatize(word) for word in vocab]
+    sum_words = X.sum(axis=0)
+    # Sum frequencies for lemmatized roots
+    word_freq = {}
+    for idx, lemma in enumerate(lemmatized_vocab):
+        word_freq[lemma] = word_freq.get(lemma, 0) + sum_words[0, idx]
+    sorted_keywords = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
+    return [w for w, _ in sorted_keywords[:n]]
+
+def lemmatize_text(text):
+    words = re.findall(r'\b\w{3,}\b', text.lower())
+    return " ".join([lemmatizer.lemmatize(word) for word in words])
 
 def analyze_sentiment(text):
     score = sia.polarity_scores(text)['compound']
@@ -153,11 +176,13 @@ if 'df' in st.session_state:
     selected_sentiment = st.multiselect('Filter by Sentiment', sentiment_options, default=sentiment_options)
     filtered_df = df[df['Sentiment'].isin(selected_sentiment)]
 
-    keywords = get_keywords(filtered_df['Article'].tolist(), n=20)
+    keywords = get_keywords_lemmatized(filtered_df['Article'].tolist(), n=50)
     selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
 
     if selected_keywords:
-        mask = filtered_df['Article'].apply(lambda x: any(k.lower() in x.lower() for k in selected_keywords))
+        mask = filtered_df['Article Preview'].apply(
+            lambda x: any(lk in lemmatize_text(x) for lk in selected_keywords)
+        )
         filtered_df = filtered_df[mask]
 
     st.dataframe(filtered_df, use_container_width=True)

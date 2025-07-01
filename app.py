@@ -95,7 +95,6 @@ def fetch_body_content(url, log):
         log.append(f"[✗] Error fetching article from {url}: {e}")
         return "Content not available"
         
-@st.cache_data(show_spinner=False)
 def crawl_feeds(selected_feeds_tuple):
     data = []
     debug_log = []
@@ -180,7 +179,7 @@ if 'df' in st.session_state:
     selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
 
     if selected_keywords:
-        mask = filtered_df['Article Preview'].apply(
+        mask = filtered_df['Article'].apply(
             lambda x: any(lk in lemmatize_text(x) for lk in selected_keywords)
         )
         filtered_df = filtered_df[mask]

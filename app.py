@@ -6,6 +6,10 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import io
 from time import sleep
+from nltk.sentiment import SentimentIntensityAnalyzer
+import nltk
+
+nltk.download('vader_lexicon')
 
 # --- Configurations ---
 RSS_FEEDS = [

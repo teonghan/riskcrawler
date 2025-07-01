@@ -99,14 +99,14 @@ def crawl_feeds(selected_feeds_tuple):
         else:
             article_content = fetch_body_content(link, debug_log)
         preview = article_content[:300] + ('...' if len(article_content) > 300 else '')
-        data.append([title, link, preview, date])
+        data.append([title, link, article_content, date])
         completed += 1
         debug_log.append(f"[{completed}/{article_count}] '{title}' scraped from {feed_url}")
     return data, debug_log
 
 @st.cache_data(show_spinner=False)
 def sentiment_analysis(data_tuple):
-    df = pd.DataFrame(list(data_tuple), columns=['Title', 'Link', 'Article Preview', 'Date'])
+    df = pd.DataFrame(list(data_tuple), columns=['Title', 'Link', 'Article', 'Date'])
     df['Sentiment'] = df['Title'].apply(analyze_sentiment)
     df['Sentiment Score'] = df['Title'].apply(lambda x: sia.polarity_scores(x)['compound'])
     return df
@@ -153,11 +153,11 @@ if 'df' in st.session_state:
     selected_sentiment = st.multiselect('Filter by Sentiment', sentiment_options, default=sentiment_options)
     filtered_df = df[df['Sentiment'].isin(selected_sentiment)]
 
-    keywords = get_keywords(filtered_df['Title'].tolist(), n=20)
+    keywords = get_keywords(filtered_df['Article'].tolist(), n=20)
     selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
 
     if selected_keywords:
-        mask = filtered_df['Title'].apply(lambda x: any(k.lower() in x.lower() for k in selected_keywords))
+        mask = filtered_df['Article'].apply(lambda x: any(k.lower() in x.lower() for k in selected_keywords))
         filtered_df = filtered_df[mask]
 
     st.dataframe(filtered_df, use_container_width=True)

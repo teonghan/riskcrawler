@@ -15,13 +15,7 @@ import string
 import re
 import spacy
 
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    with st.spinner("Downloading spaCy language model..."):
-        from spacy.cli import download
-        download("en_core_web_sm")
-    nlp = spacy.load("en_core_web_sm")
+nlp = spacy.load("en_core_web_sm")
 
 nltk.download('vader_lexicon')
 nltk.download('wordnet')

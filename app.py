@@ -1,12 +1,11 @@
 import streamlit as st
 import requests
 import random
-import csv
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
-from time import sleep
 import pandas as pd
 import io
+from time import sleep
 
 # --- Configurations ---
 RSS_FEEDS = [
@@ -21,7 +20,6 @@ USER_AGENTS = [
 ]
 NAMESPACES = {'content': 'http://purl.org/rss/1.0/modules/content/'}
 
-# --- Helper functions ---
 def fetch_rss_feed(url):
     headers = {'User-Agent': random.choice(USER_AGENTS)}
     try:
@@ -44,13 +42,12 @@ def fetch_body_content(url):
         st.warning(f"Error fetching article from {url}: {e}")
         return "Content not available"
 
-# --- Streamlit UI ---
 st.set_page_config(page_title="RSS Feed Crawler", layout="wide")
 st.title("📰 RSS Feed Crawler for Malaysian News")
 
 selected_feeds = st.multiselect(
-    "Select RSS feeds to crawl:", 
-    RSS_FEEDS, 
+    "Select RSS feeds to crawl:",
+    RSS_FEEDS,
     default=RSS_FEEDS
 )
 crawl_button = st.button("Crawl News Feeds")
@@ -68,7 +65,7 @@ if crawl_button and selected_feeds:
                     description = item.find('description').text if item.find('description') is not None else "No description"
                     link = item.find('link').text if item.find('link') is not None else "No link"
                     date = item.find('pubDate').text if item.find('pubDate') is not None else "No date"
-                    
+
                     if content_encoded is not None and content_encoded.text and content_encoded.text.strip():
                         soup = BeautifulSoup(content_encoded.text, 'html.parser')
                         article_content = soup.get_text()
@@ -77,26 +74,28 @@ if crawl_button and selected_feeds:
                         article_content = soup.get_text()
                     else:
                         article_content = fetch_body_content(link)
-                    
-                    data.append([title, link, article_content, date])
-                    st.markdown(f"**{title}**\n\n[Read More]({link})\n\n*{date}*")
-                    st.write(article_content[:400] + '...' if len(article_content) > 400 else article_content)
-                    st.markdown("---")
-                    sleep(2)  # Less aggressive to avoid blocking
+
+                    # Only keep a short preview of the article for the table
+                    preview = article_content[:300] + ('...' if len(article_content) > 300 else '')
+                    data.append([title, link, preview, date])
+                    sleep(2)  # Respectful crawling
 
     if data:
-        # Save to DataFrame and CSV in memory
-        df = pd.DataFrame(data, columns=['Title', 'Link', 'Article', 'Date'])
+        df = pd.DataFrame(data, columns=['Title', 'Link', 'Article Preview', 'Date'])
+        st.success("Crawling completed! See the DataFrame below.")
+        st.dataframe(df, use_container_width=True)
+
+        # Download as CSV
         csv_buffer = io.StringIO()
         df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
-        csv_bytes = csv_buffer.getvalue().encode('utf-8-sig')
-        st.success("Crawling completed! Download your CSV below.")
         st.download_button(
             label="Download CSV",
-            data=csv_bytes,
+            data=csv_buffer.getvalue().encode('utf-8-sig'),
             file_name='feed_data_new.csv',
             mime='text/csv'
         )
+    else:
+        st.info("No articles found.")
 else:
     st.info("Select at least one RSS feed and click 'Crawl News Feeds'.")
 

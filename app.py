@@ -140,6 +140,20 @@ def sentiment_analysis(data_tuple):
 st.set_page_config(page_title="RSS Feed Crawler", layout="wide")
 st.title("📰 RSS Feed Crawler for Malaysian News")
 
+@st.cache_data(show_spinner=False)
+def extract_entities(articles):
+    entity_counter = Counter()
+    entity_list = []
+    for text in articles:
+        doc = nlp(text)
+        ents = [ent.text.strip() for ent in doc.ents if len(ent.text.strip()) > 2]
+        entity_list.append(ents)
+        for ent in ents:
+            entity_counter[ent] += 1
+    # Return both: the full list for each article and the sorted entity list
+    sorted_entities = [e for e, _ in entity_counter.most_common(50)]
+    return entity_list, sorted_entities
+
 selected_titles = st.multiselect(
     "Select RSS feeds to crawl:",
     feed_titles,
@@ -188,6 +202,20 @@ if 'df' in st.session_state:
             lambda x: any(lk in lemmatize_text(x).split() for lk in selected_keywords)
         )
         filtered_df = filtered_df[mask]
+
+    if not filtered_df.empty:
+        article_texts = filtered_df['Article'].tolist()
+        article_entities, top_entities = extract_entities(article_texts)
+        
+        selected_entities = st.multiselect("Filter by Named Entity", top_entities)
+        
+        if selected_entities:
+            # Only show articles containing at least one selected entity
+            mask = [
+                any(entity in ents for entity in selected_entities)
+                for ents in article_entities
+            ]
+            filtered_df = filtered_df[mask]
 
     st.dataframe(filtered_df, use_container_width=True)
 

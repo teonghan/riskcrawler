@@ -140,7 +140,7 @@ def sentiment_analysis(data_tuple):
 st.set_page_config(page_title="RSS Feed Crawler", layout="wide")
 st.title("📰 RSS Feed Crawler for Malaysian News")
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=True)
 def extract_entities(articles):
     entity_counter = Counter()
     entity_list = []

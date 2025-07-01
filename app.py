@@ -15,8 +15,13 @@ import string
 import re
 import spacy
 
-# Use the package form to avoid downloading at runtime
-nlp = spacy.load("en_core_web_sm")
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    with st.spinner("Downloading spaCy language model..."):
+        from spacy.cli import download
+        download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
 
 nltk.download('vader_lexicon')
 nltk.download('wordnet')

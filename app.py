@@ -47,6 +47,14 @@ def analyze_sentiment(text):
         return 'Negative'
     else:
         return 'Neutral'
+        
+def get_keywords(texts, n=20):
+    vectorizer = CountVectorizer(stop_words='english', lowercase=True, token_pattern=r'\b\w{3,}\b')
+    X = vectorizer.fit_transform(texts)
+    sum_words = X.sum(axis=0)
+    words_freq = [(word, sum_words[0, idx]) for word, idx in vectorizer.vocabulary_.items()]
+    words_freq = sorted(words_freq, key=lambda x: x[1], reverse=True)
+    return [w for w, f in words_freq[:n]]
 
 def fetch_body_content(url, log):
     headers = {'User-Agent': random.choice(USER_AGENTS)}
@@ -132,6 +140,23 @@ if crawl_button and selected_feeds:
             file_name='feed_data_new.csv',
             mime='text/csv'
         )
+
+        sentiment_options = df['Sentiment'].unique().tolist()
+        selected_sentiment = st.multiselect('Filter by Sentiment', sentiment_options, default=sentiment_options)
+        
+        filtered_df = df[df['Sentiment'].isin(selected_sentiment)]
+        
+        # Now extract keywords for just the selected sentiment group
+        keywords = get_keywords(filtered_df['Title'].tolist(), n=20)
+        selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
+        
+        if selected_keywords:
+            # Show only rows containing any selected keyword in the title
+            mask = filtered_df['Title'].apply(lambda x: any(k.lower() in x.lower() for k in selected_keywords))
+            filtered_df = filtered_df[mask]
+        
+        st.dataframe(filtered_df, use_container_width=True)
+        
     else:
         st.info("No articles found.")
 

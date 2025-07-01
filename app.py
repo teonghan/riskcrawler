@@ -13,6 +13,10 @@ from collections import Counter
 from sklearn.feature_extraction.text import CountVectorizer
 import string
 import re
+import spacy
+
+# Use the package form to avoid downloading at runtime
+nlp = spacy.load("en_core_web_sm")
 
 nltk.download('vader_lexicon')
 nltk.download('wordnet')

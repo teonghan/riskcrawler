@@ -10,6 +10,7 @@ from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
 
 nltk.download('vader_lexicon')
+sia = SentimentIntensityAnalyzer()
 
 # --- Configurations ---
 RSS_FEEDS = [
@@ -34,6 +35,15 @@ def fetch_rss_feed(url, log):
     except (requests.RequestException, ET.ParseError) as e:
         log.append(f"[✗] Error fetching RSS feed from {url}: {e}")
         return None
+
+def analyze_sentiment(text):
+    score = sia.polarity_scores(text)['compound']
+    if score >= 0.05:
+        return 'Positive'
+    elif score <= -0.05:
+        return 'Negative'
+    else:
+        return 'Neutral'
 
 def fetch_body_content(url, log):
     headers = {'User-Agent': random.choice(USER_AGENTS)}
@@ -102,7 +112,13 @@ if crawl_button and selected_feeds:
 
     if data:
         df = pd.DataFrame(data, columns=['Title', 'Link', 'Article Preview', 'Date'])
-        st.success("Crawling completed! See the DataFrame below.")
+        st.success("Crawling completed!")
+        
+        with st.spinner("Performing sentiment analysis..."):
+            df['Sentiment'] = df['Title'].apply(analyze_sentiment)
+            df['Sentiment Score'] = df['Title'].apply(lambda x: sia.polarity_scores(x)['compound'])
+        st.success("Sentiment analysis completed!")
+        
         st.dataframe(df, use_container_width=True)
 
         csv_buffer = io.StringIO()

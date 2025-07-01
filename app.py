@@ -179,8 +179,9 @@ if 'df' in st.session_state:
     selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
 
     if selected_keywords:
+        selected_keywords = [k.lower() for k in selected_keywords]
         mask = filtered_df['Article'].apply(
-            lambda x: any(lk in lemmatize_text(x) for lk in selected_keywords)
+            lambda x: any(lk in lemmatize_text(x).split() for lk in selected_keywords)
         )
         filtered_df = filtered_df[mask]
 

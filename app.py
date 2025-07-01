@@ -8,6 +8,9 @@ import io
 from time import sleep
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
+from collections import Counter
+from sklearn.feature_extraction.text import CountVectorizer
+import string
 
 nltk.download('vader_lexicon')
 sia = SentimentIntensityAnalyzer()

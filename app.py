@@ -69,7 +69,6 @@ def fetch_body_content(url, log):
         log.append(f"[✗] Error fetching article from {url}: {e}")
         return "Content not available"
 
-@st.cache_data(show_spinner=False)
 def crawl_feeds(selected_feeds_tuple):
     data = []
     debug_log = []

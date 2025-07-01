@@ -16,12 +16,15 @@ nltk.download('vader_lexicon')
 sia = SentimentIntensityAnalyzer()
 
 # --- Configurations ---
-RSS_FEEDS = [
-    "https://www.nst.com.my/feed",
-    "https://www.freemalaysiatoday.com/category/nation/feed/",
-    "https://www.bharian.com.my/feed",
-    "https://www.sinarharian.com.my/rssFeed/211",
-]
+RSS_FEEDS_DICT = {
+    "New Straits Times (NST)": "https://www.nst.com.my/feed",
+    "Free Malaysia Today (FMT)": "https://www.freemalaysiatoday.com/category/nation/feed/",
+    "Berita Harian (BH)": "https://www.bharian.com.my/feed",
+    "Sinar Harian": "https://www.sinarharian.com.my/rssFeed/211",
+}
+
+feed_titles = list(RSS_FEEDS_DICT.keys())
+
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -111,11 +114,13 @@ def sentiment_analysis(data_tuple):
 st.set_page_config(page_title="RSS Feed Crawler", layout="wide")
 st.title("📰 RSS Feed Crawler for Malaysian News")
 
-selected_feeds = st.multiselect(
+selected_titles = st.multiselect(
     "Select RSS feeds to crawl:",
-    RSS_FEEDS,
-    default=RSS_FEEDS
+    feed_titles,
+    default=feed_titles
 )
+selected_feeds = [RSS_FEEDS_DICT[title] for title in selected_titles]
+
 crawl_button = st.button("Crawl News Feeds")
 
 # 1. User clicks "Crawl" => Store data/df in session_state

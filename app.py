@@ -69,6 +69,45 @@ def fetch_body_content(url, log):
         log.append(f"[✗] Error fetching article from {url}: {e}")
         return "Content not available"
 
+@st.cache_data(show_spinner=False)
+def crawl_feeds(selected_feeds_tuple):
+    data = []
+    debug_log = []
+    temp_articles = []
+    for feed_url in selected_feeds_tuple:
+        feed = fetch_rss_feed(feed_url, debug_log)
+        if feed:
+            articles = list(feed.findall('.//item'))
+            temp_articles.extend([(feed_url, item) for item in articles])
+    article_count = len(temp_articles)
+    completed = 0
+    for feed_url, item in temp_articles:
+        content_encoded = item.find('content:encoded', NAMESPACES)
+        title = item.find('title').text if item.find('title') is not None else "No title"
+        description = item.find('description').text if item.find('description') is not None else "No description"
+        link = item.find('link').text if item.find('link') is not None else "No link"
+        date = item.find('pubDate').text if item.find('pubDate') is not None else "No date"
+        if content_encoded is not None and content_encoded.text and content_encoded.text.strip():
+            soup = BeautifulSoup(content_encoded.text, 'html.parser')
+            article_content = soup.get_text()
+        elif description:
+            soup = BeautifulSoup(description, 'html.parser')
+            article_content = soup.get_text()
+        else:
+            article_content = fetch_body_content(link, debug_log)
+        preview = article_content[:300] + ('...' if len(article_content) > 300 else '')
+        data.append([title, link, preview, date])
+        completed += 1
+        debug_log.append(f"[{completed}/{article_count}] '{title}' scraped from {feed_url}")
+    return data, debug_log
+
+@st.cache_data(show_spinner=False)
+def sentiment_analysis(data_tuple):
+    df = pd.DataFrame(list(data_tuple), columns=['Title', 'Link', 'Article Preview', 'Date'])
+    df['Sentiment'] = df['Title'].apply(analyze_sentiment)
+    df['Sentiment Score'] = df['Title'].apply(lambda x: sia.polarity_scores(x)['compound'])
+    return df
+
 st.set_page_config(page_title="RSS Feed Crawler", layout="wide")
 st.title("📰 RSS Feed Crawler for Malaysian News")
 
@@ -79,57 +118,15 @@ selected_feeds = st.multiselect(
 )
 crawl_button = st.button("Crawl News Feeds")
 
-data = []
-debug_log = []
-
 if crawl_button and selected_feeds:
     with st.spinner("Crawling selected RSS feeds..."):
-        # Count total articles for progress bar
-        # First, get number of articles for all feeds (optional, otherwise use approximation)
-        article_count = 0
-        temp_articles = []
-        for feed_url in selected_feeds:
-            feed = fetch_rss_feed(feed_url, debug_log)
-            if feed:
-                articles = list(feed.findall('.//item'))
-                temp_articles.extend([(feed_url, item) for item in articles])
-        article_count = len(temp_articles)
-        progress = st.progress(0)
-        completed = 0
-
-        for feed_url, item in temp_articles:
-            content_encoded = item.find('content:encoded', NAMESPACES)
-            title = item.find('title').text if item.find('title') is not None else "No title"
-            description = item.find('description').text if item.find('description') is not None else "No description"
-            link = item.find('link').text if item.find('link') is not None else "No link"
-            date = item.find('pubDate').text if item.find('pubDate') is not None else "No date"
-
-            if content_encoded is not None and content_encoded.text and content_encoded.text.strip():
-                soup = BeautifulSoup(content_encoded.text, 'html.parser')
-                article_content = soup.get_text()
-            elif description:
-                soup = BeautifulSoup(description, 'html.parser')
-                article_content = soup.get_text()
-            else:
-                article_content = fetch_body_content(link, debug_log)
-
-            preview = article_content[:300] + ('...' if len(article_content) > 300 else '')
-            data.append([title, link, preview, date])
-
-            completed += 1
-            progress.progress(completed / article_count)
-            debug_log.append(f"[{completed}/{article_count}] '{title}' scraped from {feed_url}")
-            sleep(1)  # Respectful crawling
-
+        data, debug_log = crawl_feeds(tuple(selected_feeds))
     if data:
-        df = pd.DataFrame(data, columns=['Title', 'Link', 'Article Preview', 'Date'])
         st.success("Crawling completed!")
-        
         with st.spinner("Performing sentiment analysis..."):
-            df['Sentiment'] = df['Title'].apply(analyze_sentiment)
-            df['Sentiment Score'] = df['Title'].apply(lambda x: sia.polarity_scores(x)['compound'])
+            df = sentiment_analysis(tuple(tuple(row) for row in data))
         st.success("Sentiment analysis completed!")
-        
+
         st.dataframe(df, use_container_width=True)
 
         csv_buffer = io.StringIO()
@@ -151,7 +148,6 @@ if crawl_button and selected_feeds:
         selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
         
         if selected_keywords:
-            # Show only rows containing any selected keyword in the title
             mask = filtered_df['Title'].apply(lambda x: any(k.lower() in x.lower() for k in selected_keywords))
             filtered_df = filtered_df[mask]
         

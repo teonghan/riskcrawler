@@ -24,6 +24,9 @@ nltk.download('omw-1.4')
 sia = SentimentIntensityAnalyzer()
 lemmatizer = WordNetLemmatizer()
 
+# Predefined keyword list
+predefined_keywords = ['corruption', 'funding', 'ranking', 'safety', 'fraud', 'cyber', 'plagiarism', 'scandal', 'protest', 'student']
+
 # --- Configurations ---
 RSS_FEEDS_DICT = {
     "New Straits Times (NST)": "https://www.nst.com.my/feed",
@@ -189,10 +192,12 @@ if 'df' in st.session_state:
         mime='text/csv'
     )
 
+    st.subheader("Filter by Sentiment")
     sentiment_options = df['Sentiment'].unique().tolist()
     selected_sentiment = st.multiselect('Filter by Sentiment', sentiment_options, default=sentiment_options)
     filtered_df = df[df['Sentiment'].isin(selected_sentiment)]
 
+    st.subheader("Filter by Auto-generated Keywords")
     keywords = get_keywords_lemmatized(filtered_df['Article'].tolist(), n=50)
     selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
 
@@ -204,6 +209,8 @@ if 'df' in st.session_state:
         filtered_df = filtered_df[mask]
 
     if not filtered_df.empty:
+        st.subheader("Filter by Named Entities")
+        
         article_texts = filtered_df['Article'].tolist()
         article_entities, top_entities = extract_entities(article_texts)
     
@@ -220,6 +227,42 @@ if 'df' in st.session_state:
                 for ents in article_entities
             ]
             filtered_df = filtered_df[mask]
+
+    if 'keyword_input' not in st.session_state:
+        st.session_state['keyword_input'] = ", ".join(predefined_keywords)
+    
+    st.subheader("Filter by Your Keywords")
+    
+    col1, col2 = st.columns([4,1])
+    with col1:
+        user_keywords = st.text_area(
+            "Enter keywords to filter (comma separated):",
+            value=st.session_state['keyword_input'],
+            key='kw_input_area'
+        )
+    with col2:
+        if st.button("Reset to Default Keywords"):
+            st.session_state['keyword_input'] = ", ".join(predefined_keywords)
+            st.experimental_rerun()
+    
+    # Lemmatize user input
+    input_keywords = [w.strip().lower() for w in st.session_state['keyword_input'].split(",") if w.strip()]
+    lemmatizer = WordNetLemmatizer()
+    lemmatized_keywords = [lemmatizer.lemmatize(w) for w in input_keywords]
+    
+    # AND/OR toggle
+    match_mode = st.radio("Keyword Match Logic", options=['Any (OR)', 'All (AND)'], index=0, horizontal=True)
+
+    if lemmatized_keywords:
+        if match_mode == 'Any (OR)':
+            mask = filtered_df['Article'].apply(
+                lambda text: any(lk in lemmatize_text(text) for lk in lemmatized_keywords)
+            )
+        else:  # All (AND)
+            mask = filtered_df['Article'].apply(
+                lambda text: all(lk in lemmatize_text(text) for lk in lemmatized_keywords)
+            )
+        filtered_df = filtered_df[mask]
 
     st.dataframe(filtered_df, use_container_width=True)
 

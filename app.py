@@ -68,7 +68,8 @@ def fetch_body_content(url, log):
     except requests.RequestException as e:
         log.append(f"[✗] Error fetching article from {url}: {e}")
         return "Content not available"
-
+        
+@st.cache_data(show_spinner=False)
 def crawl_feeds(selected_feeds_tuple):
     data = []
     debug_log = []
@@ -117,46 +118,47 @@ selected_feeds = st.multiselect(
 )
 crawl_button = st.button("Crawl News Feeds")
 
+# 1. User clicks "Crawl" => Store data/df in session_state
 if crawl_button and selected_feeds:
     with st.spinner("Crawling selected RSS feeds..."):
         data, debug_log = crawl_feeds(tuple(selected_feeds))
+    st.session_state['data'] = data
+    st.session_state['debug_log'] = debug_log
     if data:
-        st.success("Crawling completed!")
         with st.spinner("Performing sentiment analysis..."):
             df = sentiment_analysis(tuple(tuple(row) for row in data))
-        st.success("Sentiment analysis completed!")
+        st.session_state['df'] = df
+        st.success("Crawling & sentiment analysis completed!")
 
-        st.dataframe(df, use_container_width=True)
+# 2. Now display filters and DataFrame if session_state['df'] exists
+if 'df' in st.session_state:
+    df = st.session_state['df']
+    st.dataframe(df, use_container_width=True)
 
-        csv_buffer = io.StringIO()
-        df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
-        st.download_button(
-            label="Download CSV",
-            data=csv_buffer.getvalue().encode('utf-8-sig'),
-            file_name='feed_data_new.csv',
-            mime='text/csv'
-        )
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+    st.download_button(
+        label="Download CSV",
+        data=csv_buffer.getvalue().encode('utf-8-sig'),
+        file_name='feed_data_new.csv',
+        mime='text/csv'
+    )
 
-        sentiment_options = df['Sentiment'].unique().tolist()
-        selected_sentiment = st.multiselect('Filter by Sentiment', sentiment_options, default=sentiment_options)
-        
-        filtered_df = df[df['Sentiment'].isin(selected_sentiment)]
-        
-        # Now extract keywords for just the selected sentiment group
-        keywords = get_keywords(filtered_df['Title'].tolist(), n=20)
-        selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
-        
-        if selected_keywords:
-            mask = filtered_df['Title'].apply(lambda x: any(k.lower() in x.lower() for k in selected_keywords))
-            filtered_df = filtered_df[mask]
-        
-        st.dataframe(filtered_df, use_container_width=True)
-        
-    else:
-        st.info("No articles found.")
+    sentiment_options = df['Sentiment'].unique().tolist()
+    selected_sentiment = st.multiselect('Filter by Sentiment', sentiment_options, default=sentiment_options)
+    filtered_df = df[df['Sentiment'].isin(selected_sentiment)]
+
+    keywords = get_keywords(filtered_df['Title'].tolist(), n=20)
+    selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
+
+    if selected_keywords:
+        mask = filtered_df['Title'].apply(lambda x: any(k.lower() in x.lower() for k in selected_keywords))
+        filtered_df = filtered_df[mask]
+
+    st.dataframe(filtered_df, use_container_width=True)
 
     with st.expander("Show Debug Log"):
-        st.text('\n'.join(debug_log))
+        st.text('\n'.join(st.session_state.get('debug_log', [])))
 
 else:
     st.info("Select at least one RSS feed and click 'Crawl News Feeds'.")

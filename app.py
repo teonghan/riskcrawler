@@ -146,12 +146,12 @@ def extract_entities(articles):
     entity_list = []
     for text in articles:
         doc = nlp(text)
-        ents = [ent.text.strip() for ent in doc.ents if len(ent.text.strip()) > 2]
+        ents = [(ent.text.strip(), ent.label_) for ent in doc.ents if len(ent.text.strip()) > 2]
         entity_list.append(ents)
-        for ent in ents:
-            entity_counter[ent] += 1
-    # Return both: the full list for each article and the sorted entity list
-    sorted_entities = [e for e, _ in entity_counter.most_common(50)]
+        for ent_text, ent_label in ents:
+            entity_counter[(ent_text, ent_label)] += 1
+    # Show most common, with type in label
+    sorted_entities = [f"{e[0]} ({e[1]})" for e, _ in entity_counter.most_common(50)]
     return entity_list, sorted_entities
 
 selected_titles = st.multiselect(
@@ -206,13 +206,17 @@ if 'df' in st.session_state:
     if not filtered_df.empty:
         article_texts = filtered_df['Article'].tolist()
         article_entities, top_entities = extract_entities(article_texts)
-        
+    
         selected_entities = st.multiselect("Filter by Named Entity", top_entities)
-        
+    
+        def entity_match(selected, article_ents):
+            # selected: "Text (LABEL)", article_ents: [(text, label), ...]
+            selected_tuples = [ (s.rsplit(" (", 1)[0], s.rsplit("(", 1)[1].replace(")", "")) for s in selected ]
+            return any( (ent[0], ent[1]) in selected_tuples for ent in article_ents )
+    
         if selected_entities:
-            # Only show articles containing at least one selected entity
             mask = [
-                any(entity in ents for entity in selected_entities)
+                entity_match(selected_entities, ents)
                 for ents in article_entities
             ]
             filtered_df = filtered_df[mask]

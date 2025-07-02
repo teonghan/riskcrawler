@@ -323,7 +323,7 @@ if 'df' in st.session_state:
         disabled=read_only_columns,
         use_container_width=True,
         hide_index=True,
-        num_rows="dynamic",
+        num_rows="fixed",
     )
     st.session_state['tagged_df'] = edited_df  # Persist edits
     

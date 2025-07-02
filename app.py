@@ -252,6 +252,7 @@ if 'df' in st.session_state:
     match_mode = st.radio("Keyword Match Logic", options=['Any (OR)', 'All (AND)'], index=0, horizontal=True)
     
     if input_keywords:
+        
         def keyword_match(text):
             text = text.lower()
             if match_mode == 'Any (OR)':
@@ -260,6 +261,9 @@ if 'df' in st.session_state:
                 return all(k in text for k in input_keywords)
         mask = filtered_df['Article'].apply(keyword_match)
         filtered_df = filtered_df[mask]
+
+    else:
+        st.info("No keywords entered — showing all articles.")
 
     st.dataframe(filtered_df, use_container_width=True)
 

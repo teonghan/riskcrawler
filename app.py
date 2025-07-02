@@ -225,7 +225,10 @@ if 'df' in st.session_state:
     for ents in filtered_df['Entities']:
         entities_flat.extend(ents)
     
-    selected_entities = st.multiselect("Filter by Named Entity", entities_flat)
+    # Convert to "Text (LABEL)" format and deduplicate
+    all_entities = sorted(set(f"{ent[0]} ({ent[1]})" for ent in entities_flat), key=lambda x: x.lower())
+    
+    selected_entities = st.multiselect("Filter by Named Entity", all_entities)
 
     # Convert selected string to tuple
     selected_tuples = [(s.rsplit(" (", 1)[0], s.rsplit("(", 1)[1].replace(")", "")) for s in selected_entities]

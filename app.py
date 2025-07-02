@@ -287,19 +287,21 @@ if 'df' in st.session_state:
             st.session_state['tagged_df'][col] = ""
     
     # Editable grid
-    gb = GridOptionsBuilder.from_dataframe(st.session_state['tagged_df'])
-    gb.configure_column("Relevancy", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["High", "Mid", "Low"]})
-    gb.configure_column("Theme", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["Funding", "Governance", "Reputation", "Integrity", "Cyber", "Other"]})
-    
-    grid_options = gb.build()
-    grid_response = AgGrid(
-        st.session_state['tagged_df'],
-        gridOptions=grid_options,
-        update_mode=GridUpdateMode.VALUE_CHANGED,
-        allow_unsafe_jscode=True,
-        height=400,
+    edited_df = st.data_editor(
+        filtered_df,
+        column_config={
+            "Relevancy": st.column_config.SelectboxColumnConfig(
+                options=["High", "Mid", "Low"]
+            ),
+            "Theme": st.column_config.SelectboxColumnConfig(
+                options=["Funding", "Governance", "Reputation", "Integrity", "Cyber", "Other"]
+            ),
+        },
+        use_container_width=True,
+        hide_index=True,
+        num_rows="dynamic",
     )
-    st.session_state['tagged_df'] = grid_response['data']  # Persist edits
+    st.session_state['tagged_df'] = edited_df  # Persist edits
     
     # Export
     csv = io.StringIO()

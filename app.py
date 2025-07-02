@@ -228,11 +228,17 @@ if crawl_button and selected_feeds:
 
                 if data:
                     with st.spinner("Auto classify..."):
+
+                        progress_bar = st.progress(0, text="Classifying...")
                         
                         for i in range(2):  # Only the first two rows
                             label, score = classify_article(df.iloc[i]['Summary'])
                             df.at[df.index[i], 'AI_Risk'] = label
                             df.at[df.index[i], 'AI_Risk_Score'] = score
+
+                            # Update progress bar
+                            progress = (i + 1) / 2  # Or use total N for full loop
+                            progress_bar.progress(progress, text=f"Classifying row {i+1}/2...")
 
                         st.session_state['df'] = df
                     st.success("Auto classification completed!")

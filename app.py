@@ -25,7 +25,7 @@ sia = SentimentIntensityAnalyzer()
 lemmatizer = WordNetLemmatizer()
 
 # Predefined keyword list
-predefined_keywords = ['corruption', 'funding', 'ranking', 'safety', 'fraud', 'cyber', 'plagiarism', 'scandal', 'protest', 'student']
+predefined_keywords = []
 
 # --- Configurations ---
 RSS_FEEDS_DICT = {

@@ -233,7 +233,7 @@ if 'df' in st.session_state:
     
     st.subheader("Filter by Your Keywords")
     
-    col1, col2 = st.columns([4,1])
+    col1, col2 = st.columns([4, 1])
     with col1:
         user_keywords = st.text_area(
             "Enter keywords to filter (comma separated):",
@@ -245,25 +245,27 @@ if 'df' in st.session_state:
             st.session_state['keyword_input'] = ", ".join(predefined_keywords)
             st.experimental_rerun()
     
-    # Split and lowercase user input
-    input_keywords = [w.strip().lower() for w in st.session_state['keyword_input'].split(",") if w.strip()]
+    # Split and lowercase user input, use the actual text area value!
+    input_keywords = [w.strip().lower() for w in user_keywords.split(",") if w.strip()]
     
-    # AND/OR toggle
     match_mode = st.radio("Keyword Match Logic", options=['Any (OR)', 'All (AND)'], index=0, horizontal=True)
     
+    # Only show info if input_keywords is empty
+    if not input_keywords:
+        st.info("No keywords entered — showing all articles.")
+    
+    # Only filter if there are keywords
     if input_keywords:
-        
         def keyword_match(text):
-            text = text.lower()
+            text = str(text).lower()
             if match_mode == 'Any (OR)':
                 return any(k in text for k in input_keywords)
-            else:  # All (AND)
+            else:
                 return all(k in text for k in input_keywords)
         mask = filtered_df['Article'].apply(keyword_match)
         filtered_df = filtered_df[mask]
-
-    else:
-        st.info("No keywords entered — showing all articles.")
+        if filtered_df.empty:
+            st.warning("No articles match the selected keywords.")
 
     st.dataframe(filtered_df, use_container_width=True)
 

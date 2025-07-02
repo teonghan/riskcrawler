@@ -197,6 +197,12 @@ if crawl_button and selected_feeds:
 # --------------------------------------
 if 'df' in st.session_state:
     df = st.session_state['df']
+    
+    # Ensure columns exist in your permanent DataFrame
+    for col in ["Relevancy", "Theme"]:
+        if col not in st.session_state['df'].columns:
+            st.session_state['df'][col] = ""
+    
     st.dataframe(df, use_container_width=True)
 
     # --------------------------------

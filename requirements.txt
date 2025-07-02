@@ -4,7 +4,6 @@ pandas
 lxml
 requests
 nltk
-https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages/tokenizers/punkt_tab.zip
 scikit-learn
 streamlit-aggrid
 sumy

@@ -320,7 +320,7 @@ if 'df' in st.session_state:
                 options=["Funding", "Governance", "Reputation", "Integrity", "Cyber", "Other"]
             ),
         },
-        disabled_columns=read_only_columns,
+        disabled=read_only_columns,
         use_container_width=True,
         hide_index=True,
         num_rows="dynamic",

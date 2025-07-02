@@ -19,6 +19,7 @@ from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 
 nlp = spacy.load("en_core_web_sm")
+nltk.download("punkt_tab")
 
 nltk.download('vader_lexicon')
 nltk.download('wordnet')

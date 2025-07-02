@@ -173,11 +173,18 @@ if crawl_button and selected_feeds:
         data, debug_log = crawl_feeds(tuple(selected_feeds))
     st.session_state['data'] = data
     st.session_state['debug_log'] = debug_log
+    
     if data:
         with st.spinner("Performing sentiment analysis..."):
             df = sentiment_analysis(tuple(tuple(row) for row in data))
         st.session_state['df'] = df
         st.success("Crawling & sentiment analysis completed!")
+    
+    if data:
+        with st.spinner("Performing named entity recognition..."):
+            article_texts = filtered_df['Article'].tolist()
+            article_entities, top_entities = extract_entities(article_texts)
+        st.success("NER completed!")
 
 # 2. Now display filters and DataFrame if session_state['df'] exists
 if 'df' in st.session_state:
@@ -211,9 +218,6 @@ if 'df' in st.session_state:
 
     if not filtered_df.empty:
         st.subheader("Filter by Named Entities")
-        
-        article_texts = filtered_df['Article'].tolist()
-        article_entities, top_entities = extract_entities(article_texts)
     
         selected_entities = st.multiselect("Filter by Named Entity", top_entities)
     

@@ -171,7 +171,9 @@ selected_feeds = [RSS_FEEDS_DICT[title] for title in selected_titles]
 
 crawl_button = st.button("Crawl News Feeds")
 
+# ---------------------------------------------------------
 # 1. User clicks "Crawl" => Store data/df in session_state
+# ---------------------------------------------------------
 if crawl_button and selected_feeds:
     with st.spinner("Crawling selected RSS feeds..."):
         data, debug_log = crawl_feeds(tuple(selected_feeds))
@@ -189,12 +191,17 @@ if crawl_button and selected_feeds:
                 df['Entities'] = df['Article'].apply(extract_entities_spacy)
                 st.session_state['df'] = df
             st.success("NER completed!")
-
-# 2. Now display filters and DataFrame if session_state['df'] exists
+            
+# --------------------------------------
+# 2. Display the df with Sentiment + NER
+# --------------------------------------
 if 'df' in st.session_state:
     df = st.session_state['df']
     st.dataframe(df, use_container_width=True)
 
+    # --------------------------------
+    # 3. Provide download of RAW data
+    # --------------------------------
     csv_buffer = io.StringIO()
     df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
     st.download_button(
@@ -204,11 +211,18 @@ if 'df' in st.session_state:
         mime='text/csv'
     )
 
+    # --------------------------
+    # 4. Add filter by sentiment
+    # --------------------------
     st.subheader("Filter by Sentiment")
     sentiment_options = df['Sentiment'].unique().tolist()
     selected_sentiment = st.multiselect('Filter by Sentiment', sentiment_options, default=sentiment_options)
-    filtered_df = df[df['Sentiment'].isin(selected_sentiment)]
+    
+    filtered_df = st.session_state['df'][st.session_state['df']['Sentiment'].isin(selected_sentiment)] # <- filter that damn bastard
 
+    # -------------------------------
+    # 5. Add filter auto-gen keywords
+    # -------------------------------
     st.subheader("Filter by Auto-generated Keywords")
     keywords = get_keywords_lemmatized(filtered_df['Article'].tolist(), n=50)
     selected_keywords = st.multiselect('Filter by Keyword', keywords, default=[])
@@ -219,8 +233,10 @@ if 'df' in st.session_state:
             lambda x: any(lk in lemmatize_text(x).split() for lk in selected_keywords)
         )
         filtered_df = filtered_df[mask]
-
-    # After all other filters, for the visible/filtered DataFrame:
+        
+    # ---------------------
+    # 6. Add filter for NER
+    # ---------------------
     entities_flat = []
     for ents in filtered_df['Entities']:
         entities_flat.extend(ents)
@@ -237,6 +253,9 @@ if 'df' in st.session_state:
         mask = filtered_df['Entities'].apply(lambda ents: any(e in selected_tuples for e in ents))
         filtered_df = filtered_df[mask]
 
+    # ---------------------------------
+    # 7. Add filter for custom keywords
+    # ---------------------------------
     if 'keyword_input' not in st.session_state:
         st.session_state['keyword_input'] = ", ".join(predefined_keywords)
     
@@ -276,8 +295,6 @@ if 'df' in st.session_state:
         if filtered_df.empty:
             st.warning("No articles match the selected keywords.")
 
-    # st.dataframe(filtered_df, use_container_width=True)
-
     # Add columns for tagging if not already present
     if 'tagged_df' not in st.session_state or st.session_state['tagged_df'].shape[0] != filtered_df.shape[0]:
         st.session_state['tagged_df'] = filtered_df.copy()
@@ -307,7 +324,6 @@ if 'df' in st.session_state:
     csv = io.StringIO()
     st.session_state['tagged_df'].to_csv(csv, index=False)
     st.download_button("Download tagged CSV", csv.getvalue(), "tagged_news.csv")
-
 
     with st.expander("Show Debug Log"):
         st.text('\n'.join(st.session_state.get('debug_log', [])))

@@ -271,6 +271,8 @@ if 'df' in st.session_state:
     # st.dataframe(filtered_df, use_container_width=True)
     
     df_display = filtered_df.copy()
+    df_display['Link (Click)'] = df_display.apply(lambda row: f"[Read]({row['Link']})", axis=1)
+
     # Add columns for tagging (if not already there)
     if 'Relevancy' not in df_display.columns:
         df_display['Relevancy'] = ""
@@ -280,7 +282,7 @@ if 'df' in st.session_state:
     gb = GridOptionsBuilder.from_dataframe(df_display)
     gb.configure_column("Relevancy", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["H", "M", "L"]})
     gb.configure_column("Theme", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["Funding", "Governance", "Reputation", "Integrity", "Cyber", "Other"]})
-    gb.configure_column("Link", cellRenderer='agGroupCellRenderer', cellRendererParams={'suppressCount': True})  # makes links clickable
+    # gb.configure_column("Link", cellRenderer='agGroupCellRenderer', cellRendererParams={'suppressCount': True})  # makes links clickable
     
     grid_options = gb.build()
     grid_response = AgGrid(

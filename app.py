@@ -136,8 +136,8 @@ def crawl_feeds(selected_feeds_tuple):
 @st.cache_data(show_spinner=False)
 def sentiment_analysis(data_tuple):
     df = pd.DataFrame(list(data_tuple), columns=['Title', 'Link', 'Article', 'Date'])
-    df['Sentiment'] = df['Title'].apply(analyze_sentiment)
-    df['Sentiment Score'] = df['Title'].apply(lambda x: sia.polarity_scores(x)['compound'])
+    df['Sentiment'] = df['Article'].apply(analyze_sentiment)
+    df['Sentiment Score'] = df['Article'].apply(lambda x: sia.polarity_scores(x)['compound'])
     return df
 
 st.set_page_config(page_title="RSS Feed Crawler", layout="wide")

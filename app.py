@@ -305,11 +305,11 @@ if 'df' in st.session_state:
     if 'tagged_df' not in st.session_state or st.session_state['tagged_df'].shape[0] != filtered_df.shape[0]:
         st.session_state['tagged_df'] = filtered_df.copy()
     
-    for col in ['Relevancy', 'Theme']:
-        if col not in st.session_state['tagged_df'].columns:
-            st.session_state['tagged_df'][col] = ""
-    
     # Editable grid
+    editable_columns = ['Relevancy', 'Theme']
+    all_columns = filtered_df.columns.tolist()
+    read_only_columns = [col for col in all_columns if col not in editable_columns]
+    
     edited_df = st.data_editor(
         filtered_df,
         column_config={
@@ -320,6 +320,7 @@ if 'df' in st.session_state:
                 options=["Funding", "Governance", "Reputation", "Integrity", "Cyber", "Other"]
             ),
         },
+        disabled_columns=read_only_columns,
         use_container_width=True,
         hide_index=True,
         num_rows="dynamic",

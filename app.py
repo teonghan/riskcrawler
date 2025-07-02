@@ -158,6 +158,10 @@ def extract_entities(articles):
     sorted_entities = [f"{e[0]} ({e[1]})" for e, _ in entity_counter.most_common(50)]
     return entity_list, sorted_entities
 
+def extract_entities_spacy(text):
+    doc = nlp(text)
+    return [(ent.text.strip(), ent.label_) for ent in doc.ents if len(ent.text.strip()) > 2]
+
 selected_titles = st.multiselect(
     "Select RSS feeds to crawl:",
     feed_titles,
@@ -182,8 +186,8 @@ if crawl_button and selected_feeds:
     
     if data:
         with st.spinner("Performing named entity recognition..."):
-            article_texts = df['Article'].tolist()
-            article_entities, top_entities = extract_entities(article_texts)
+            df['Entities'] = df['Article'].apply(extract_entities_spacy)
+            st.session_state['df']
         st.success("NER completed!")
 
 # 2. Now display filters and DataFrame if session_state['df'] exists
@@ -216,22 +220,19 @@ if 'df' in st.session_state:
         )
         filtered_df = filtered_df[mask]
 
-    if not filtered_df.empty:
-        st.subheader("Filter by Named Entities")
+    # After all other filters, for the visible/filtered DataFrame:
+    entities_flat = []
+    for ents in filtered_df['Entities']:
+        entities_flat.extend(ents)
     
-        selected_entities = st.multiselect("Filter by Named Entity", top_entities)
+    selected_entities = st.multiselect("Filter by Named Entity", entities_flat)
+
+    # Convert selected string to tuple
+    selected_tuples = [(s.rsplit(" (", 1)[0], s.rsplit("(", 1)[1].replace(")", "")) for s in selected_entities]
     
-        def entity_match(selected, article_ents):
-            # selected: "Text (LABEL)", article_ents: [(text, label), ...]
-            selected_tuples = [ (s.rsplit(" (", 1)[0], s.rsplit("(", 1)[1].replace(")", "")) for s in selected ]
-            return any( (ent[0], ent[1]) in selected_tuples for ent in article_ents )
-    
-        if selected_entities:
-            mask = [
-                entity_match(selected_entities, ents)
-                for ents in article_entities
-            ]
-            filtered_df = filtered_df[mask]
+    if selected_entities:
+        mask = filtered_df['Entities'].apply(lambda ents: any(e in selected_tuples for e in ents))
+        filtered_df = filtered_df[mask]
 
     if 'keyword_input' not in st.session_state:
         st.session_state['keyword_input'] = ", ".join(predefined_keywords)

@@ -245,22 +245,21 @@ if 'df' in st.session_state:
             st.session_state['keyword_input'] = ", ".join(predefined_keywords)
             st.experimental_rerun()
     
+    # Split and lowercase user input
+    input_keywords = [w.strip().lower() for w in st.session_state['keyword_input'].split(",") if w.strip()]
     
-# Split and lowercase user input
-input_keywords = [w.strip().lower() for w in st.session_state['keyword_input'].split(",") if w.strip()]
-
-# AND/OR toggle
-match_mode = st.radio("Keyword Match Logic", options=['Any (OR)', 'All (AND)'], index=0, horizontal=True)
-
-if input_keywords:
-    def keyword_match(text):
-        text = text.lower()
-        if match_mode == 'Any (OR)':
-            return any(k in text for k in input_keywords)
-        else:  # All (AND)
-            return all(k in text for k in input_keywords)
-    mask = filtered_df['Article'].apply(keyword_match)
-    filtered_df = filtered_df[mask]
+    # AND/OR toggle
+    match_mode = st.radio("Keyword Match Logic", options=['Any (OR)', 'All (AND)'], index=0, horizontal=True)
+    
+    if input_keywords:
+        def keyword_match(text):
+            text = text.lower()
+            if match_mode == 'Any (OR)':
+                return any(k in text for k in input_keywords)
+            else:  # All (AND)
+                return all(k in text for k in input_keywords)
+        mask = filtered_df['Article'].apply(keyword_match)
+        filtered_df = filtered_df[mask]
 
     st.dataframe(filtered_df, use_container_width=True)
 

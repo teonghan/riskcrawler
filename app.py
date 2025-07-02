@@ -269,9 +269,13 @@ if 'df' in st.session_state:
             st.warning("No articles match the selected keywords.")
 
     # st.dataframe(filtered_df, use_container_width=True)
+
+    # 1. On first run, store the full (filtered) DataFrame in session state if not already
+    if 'tagged_df' not in st.session_state:
+        st.session_state['tagged_df'] = filtered_df.copy()
     
-    df_display = filtered_df.copy()
-    df_display['Link (Click)'] = df_display.apply(lambda row: f"[Read]({row['Link']})", axis=1)
+    # df_display = filtered_df.copy()
+    # df_display['Link (Click)'] = df_display.apply(lambda row: f"[Read]({row['Link']})", axis=1)
 
     # Add columns for tagging (if not already there)
     if 'Relevancy' not in df_display.columns:
@@ -279,21 +283,20 @@ if 'df' in st.session_state:
     if 'Theme' not in df_display.columns:
         df_display['Theme'] = ""
     
-    gb = GridOptionsBuilder.from_dataframe(df_display)
-    gb.configure_column("Relevancy", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["H", "M", "L"]})
+    gb = GridOptionsBuilder.from_dataframe(st.session_state['tagged_df'])
+    gb.configure_column("Relevancy", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["High", "Mid", "Low"]})
     gb.configure_column("Theme", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["Funding", "Governance", "Reputation", "Integrity", "Cyber", "Other"]})
     # gb.configure_column("Link", cellRenderer='agGroupCellRenderer', cellRendererParams={'suppressCount': True})  # makes links clickable
     
     grid_options = gb.build()
     grid_response = AgGrid(
-        df_display,
+        st.session_state['tagged_df'],
         gridOptions=grid_options,
         update_mode=GridUpdateMode.VALUE_CHANGED,
         allow_unsafe_jscode=True,
         height=400,
     )
-    
-    df_tagged = grid_response['data']
+    st.session_state['tagged_df'] = grid_response['data']  # Update with latest edits
     
     # Then provide export:
     csv = io.StringIO()

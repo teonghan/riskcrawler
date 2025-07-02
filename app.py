@@ -228,9 +228,12 @@ if crawl_button and selected_feeds:
 
                 if data:
                     with st.spinner("Auto classify..."):
-                        df[['AI_Risk', 'AI_Risk_Score']] = df['Summary'].apply(
-                            lambda x: pd.Series(classify_article(x))
-                        )
+                        
+                        for i in range(2):  # Only the first two rows
+                            label, score = classify_article(df.iloc[i]['Summary'])
+                            df.at[df.index[i], 'AI_Risk'] = label
+                            df.at[df.index[i], 'AI_Risk_Score'] = score
+
                         st.session_state['df'] = df
                     st.success("Auto classification completed!")
             

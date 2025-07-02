@@ -270,23 +270,18 @@ if 'df' in st.session_state:
 
     # st.dataframe(filtered_df, use_container_width=True)
 
-    # 1. On first run, store the full (filtered) DataFrame in session state if not already
-    if 'tagged_df' not in st.session_state:
+    # Add columns for tagging if not already present
+    if 'tagged_df' not in st.session_state or st.session_state['tagged_df'].shape[0] != filtered_df.shape[0]:
         st.session_state['tagged_df'] = filtered_df.copy()
     
-    # df_display = filtered_df.copy()
-    # df_display['Link (Click)'] = df_display.apply(lambda row: f"[Read]({row['Link']})", axis=1)
-
-    # Add columns for tagging (if not already there)
-    if 'Relevancy' not in df_display.columns:
-        df_display['Relevancy'] = ""
-    if 'Theme' not in df_display.columns:
-        df_display['Theme'] = ""
+    for col in ['Relevancy', 'Theme']:
+        if col not in st.session_state['tagged_df'].columns:
+            st.session_state['tagged_df'][col] = ""
     
+    # Editable grid
     gb = GridOptionsBuilder.from_dataframe(st.session_state['tagged_df'])
     gb.configure_column("Relevancy", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["High", "Mid", "Low"]})
     gb.configure_column("Theme", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["Funding", "Governance", "Reputation", "Integrity", "Cyber", "Other"]})
-    # gb.configure_column("Link", cellRenderer='agGroupCellRenderer', cellRendererParams={'suppressCount': True})  # makes links clickable
     
     grid_options = gb.build()
     grid_response = AgGrid(
@@ -296,12 +291,13 @@ if 'df' in st.session_state:
         allow_unsafe_jscode=True,
         height=400,
     )
-    st.session_state['tagged_df'] = grid_response['data']  # Update with latest edits
+    st.session_state['tagged_df'] = grid_response['data']  # Persist edits
     
-    # Then provide export:
+    # Export
     csv = io.StringIO()
-    df_tagged.to_csv(csv, index=False)
+    st.session_state['tagged_df'].to_csv(csv, index=False)
     st.download_button("Download tagged CSV", csv.getvalue(), "tagged_news.csv")
+
 
     with st.expander("Show Debug Log"):
         st.text('\n'.join(st.session_state.get('debug_log', [])))

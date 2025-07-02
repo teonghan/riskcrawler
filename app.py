@@ -14,6 +14,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 import string
 import re
 import spacy
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 nlp = spacy.load("en_core_web_sm")
 
@@ -267,7 +268,35 @@ if 'df' in st.session_state:
         if filtered_df.empty:
             st.warning("No articles match the selected keywords.")
 
-    st.dataframe(filtered_df, use_container_width=True)
+    # st.dataframe(filtered_df, use_container_width=True)
+    
+    df_display = filtered_df.copy()
+    # Add columns for tagging (if not already there)
+    if 'Relevancy' not in df_display.columns:
+        df_display['Relevancy'] = ""
+    if 'Theme' not in df_display.columns:
+        df_display['Theme'] = ""
+    
+    gb = GridOptionsBuilder.from_dataframe(df_display)
+    gb.configure_column("Relevancy", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["H", "M", "L"]})
+    gb.configure_column("Theme", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={"values": ["Funding", "Governance", "Reputation", "Integrity", "Cyber", "Other"]})
+    gb.configure_column("Link", cellRenderer='agGroupCellRenderer', cellRendererParams={'suppressCount': True})  # makes links clickable
+    
+    grid_options = gb.build()
+    grid_response = AgGrid(
+        df_display,
+        gridOptions=grid_options,
+        update_mode=GridUpdateMode.VALUE_CHANGED,
+        allow_unsafe_jscode=True,
+        height=400,
+    )
+    
+    df_tagged = grid_response['data']
+    
+    # Then provide export:
+    csv = io.StringIO()
+    df_tagged.to_csv(csv, index=False)
+    st.download_button("Download tagged CSV", csv.getvalue(), "tagged_news.csv")
 
     with st.expander("Show Debug Log"):
         st.text('\n'.join(st.session_state.get('debug_log', [])))

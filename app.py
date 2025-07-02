@@ -17,6 +17,18 @@ import spacy
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
+from transformers import pipeline
+
+# -----------------
+# A. Auto classifier
+# -----------------
+classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+
+candidate_labels = [
+    "This article is about a major risk to a public university",
+    "This article is about a moderate or ongoing risk to a public university",
+    "This article is about a low or routine issue"
+]
 
 nlp = spacy.load("en_core_web_sm")
 nltk.download("punkt_tab")
@@ -171,6 +183,10 @@ def summarize_text(text, sentences_count=2):
     summary = summarizer(parser.document, sentences_count)
     return " ".join([str(sentence) for sentence in summary])
 
+def classify_article(article):
+    result = classifier(article, candidate_labels)
+    return result['labels'][0], result['scores'][0]  # Top label and score
+
 # --------------------------
 # 0. List RSS to choose from
 # --------------------------
@@ -209,6 +225,14 @@ if crawl_button and selected_feeds:
                     df['Summary'] = df['Article'].apply(lambda x: summarize_text(x, 2))
                     st.session_state['df'] = df
                 st.success("Summarisation completed!")
+
+                if data:
+                    with st.spinner("Auto classify..."):
+                        df[['AI_Risk', 'AI_Risk_Score']] = df['Summary'].apply(
+                            lambda x: pd.Series(classify_article(x))
+                        )
+                        st.session_state['df'] = df
+                    st.success("Auto classification completed!")
             
 # --------------------------------------
 # 2. Display the df with Sentiment + NER

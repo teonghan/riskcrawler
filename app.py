@@ -182,7 +182,7 @@ if crawl_button and selected_feeds:
     
     if data:
         with st.spinner("Performing named entity recognition..."):
-            article_texts = filtered_df['Article'].tolist()
+            article_texts = df['Article'].tolist()
             article_entities, top_entities = extract_entities(article_texts)
         st.success("NER completed!")
 

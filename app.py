@@ -290,10 +290,10 @@ if 'df' in st.session_state:
     edited_df = st.data_editor(
         filtered_df,
         column_config={
-            "Relevancy": st.column_config.SelectboxColumnConfig(
+            "Relevancy": st.column_config.SelectboxColumn(
                 options=["High", "Mid", "Low"]
             ),
-            "Theme": st.column_config.SelectboxColumnConfig(
+            "Theme": st.column_config.SelectboxColumn(
                 options=["Funding", "Governance", "Reputation", "Integrity", "Cyber", "Other"]
             ),
         },

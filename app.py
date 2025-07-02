@@ -14,7 +14,9 @@ from sklearn.feature_extraction.text import CountVectorizer
 import string
 import re
 import spacy
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
 
 nlp = spacy.load("en_core_web_sm")
 
@@ -162,6 +164,15 @@ def extract_entities_spacy(text):
     doc = nlp(text)
     return [(ent.text.strip(), ent.label_) for ent in doc.ents if len(ent.text.strip()) > 2]
 
+def summarize_text(text, sentences_count=2):
+    parser = PlaintextParser.from_string(text, Tokenizer("english"))
+    summarizer = LsaSummarizer()
+    summary = summarizer(parser.document, sentences_count)
+    return " ".join([str(sentence) for sentence in summary])
+
+# --------------------------
+# 0. List RSS to choose from
+# --------------------------
 selected_titles = st.multiselect(
     "Select RSS feeds to crawl:",
     feed_titles,
@@ -191,6 +202,12 @@ if crawl_button and selected_feeds:
                 df['Entities'] = df['Article'].apply(extract_entities_spacy)
                 st.session_state['df'] = df
             st.success("NER completed!")
+
+            if data:
+                with st.spinner("Create summary..."):
+                    df['Summary'] = df['Article'].apply(lambda x: summarize_text(x, 2))
+                    st.session_state['df'] = df
+                st.success("Summarisation completed!")
             
 # --------------------------------------
 # 2. Display the df with Sentiment + NER

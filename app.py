@@ -245,24 +245,22 @@ if 'df' in st.session_state:
             st.session_state['keyword_input'] = ", ".join(predefined_keywords)
             st.experimental_rerun()
     
-    # Lemmatize user input
-    input_keywords = [w.strip().lower() for w in st.session_state['keyword_input'].split(",") if w.strip()]
-    lemmatizer = WordNetLemmatizer()
-    lemmatized_keywords = [lemmatizer.lemmatize(w) for w in input_keywords]
     
-    # AND/OR toggle
-    match_mode = st.radio("Keyword Match Logic", options=['Any (OR)', 'All (AND)'], index=0, horizontal=True)
+# Split and lowercase user input
+input_keywords = [w.strip().lower() for w in st.session_state['keyword_input'].split(",") if w.strip()]
 
-    if lemmatized_keywords:
+# AND/OR toggle
+match_mode = st.radio("Keyword Match Logic", options=['Any (OR)', 'All (AND)'], index=0, horizontal=True)
+
+if input_keywords:
+    def keyword_match(text):
+        text = text.lower()
         if match_mode == 'Any (OR)':
-            mask = filtered_df['Article'].apply(
-                lambda text: any(lk in lemmatize_text(text) for lk in lemmatized_keywords)
-            )
+            return any(k in text for k in input_keywords)
         else:  # All (AND)
-            mask = filtered_df['Article'].apply(
-                lambda text: all(lk in lemmatize_text(text) for lk in lemmatized_keywords)
-            )
-        filtered_df = filtered_df[mask]
+            return all(k in text for k in input_keywords)
+    mask = filtered_df['Article'].apply(keyword_match)
+    filtered_df = filtered_df[mask]
 
     st.dataframe(filtered_df, use_container_width=True)
 

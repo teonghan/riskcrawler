@@ -187,7 +187,7 @@ if crawl_button and selected_feeds:
         if data:
             with st.spinner("Performing named entity recognition..."):
                 df['Entities'] = df['Article'].apply(extract_entities_spacy)
-                st.session_state['df']
+                st.session_state['df'] = df
             st.success("NER completed!")
 
 # 2. Now display filters and DataFrame if session_state['df'] exists

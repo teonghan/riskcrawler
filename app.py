@@ -252,7 +252,7 @@ if crawl_button and selected_feeds:
                         for i in range(2):  # Only the first two rows
                             start_article = time.time()
                             
-                            label, score = classify_article(df.iloc[i]['Summary'])
+                            label, score = classify_article(df.iloc[i]['Title'])
                             df.at[df.index[i], 'AI_Risk'] = label
                             df.at[df.index[i], 'AI_Risk_Score'] = score
 

@@ -51,11 +51,17 @@ lemmatizer = WordNetLemmatizer()
 predefined_keywords = []
 
 # --- Configurations ---
+'''
 RSS_FEEDS_DICT = {
     "New Straits Times (NST)": "https://www.nst.com.my/feed",
     "Free Malaysia Today (FMT)": "https://www.freemalaysiatoday.com/category/nation/feed/",
     "Berita Harian (BH)": "https://www.bharian.com.my/feed",
     "Sinar Harian": "https://www.sinarharian.com.my/rssFeed/211",
+}
+'''
+
+RSS_FEEDS_DICT = {
+    "New Straits Times (NST)": "https://www.nst.com.my/feed",
 }
 
 feed_titles = list(RSS_FEEDS_DICT.keys())

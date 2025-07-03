@@ -28,13 +28,15 @@ classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnl
 candidate_labels = [
     "This article is about a major risk to a public university",
     "This article is about a moderate or ongoing risk to a public university",
-    "This article is about a low or routine issue"
+    "This article is about a low risk to a public university",
+    "This article is unlikely to be related to the interest of a public university"
 ]
 
 label_map = {
     "This article is about a major risk to a public university": "High",
     "This article is about a moderate or ongoing risk to a public university": "Mid",
-    "This article is about a low or routine issue": "Low"
+    "This article is about a low risk to a public university": "Low",
+    "This article is unlikely to be related to the interest of a public university": "UNK"
 }
 
 nlp = spacy.load("en_core_web_sm")

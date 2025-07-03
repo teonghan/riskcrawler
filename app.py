@@ -18,6 +18,7 @@ from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 from transformers import pipeline
+import time
 
 # -----------------
 # A. Auto classifier
@@ -230,18 +231,32 @@ if crawl_button and selected_feeds:
                     with st.spinner("Auto classify..."):
 
                         progress_bar = st.progress(0, text="Classifying...")
+                        times = []
+                        start_total = time.time()
                         
                         for i in range(2):  # Only the first two rows
+                            start_article = time.time()
+                            
                             label, score = classify_article(df.iloc[i]['Summary'])
                             df.at[df.index[i], 'AI_Risk'] = label
                             df.at[df.index[i], 'AI_Risk_Score'] = score
+
+                            end_article = time.time()
+                            times.append(end_article - start_article)
 
                             # Update progress bar
                             progress = (i + 1) / 2  # Or use total N for full loop
                             progress_bar.progress(progress, text=f"Classifying row {i+1}/2...")
 
+                        total_time = time.time() - start_total
+
                         st.session_state['df'] = df
-                    st.success("Auto classification completed!")
+                        
+                    st.success(
+                        f"Auto classification completed! ⏱️ "
+                        f"Avg/article: {sum(times)/len(times):.2f}s, "
+                        f"Total: {total_time:.2f}s"
+                    )
             
 # --------------------------------------
 # 2. Display the df with Sentiment + NER

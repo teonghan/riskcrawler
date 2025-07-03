@@ -31,6 +31,12 @@ candidate_labels = [
     "This article is about a low or routine issue"
 ]
 
+label_map = {
+    "This article is about a major risk to a public university": "High",
+    "This article is about a moderate or ongoing risk to a public university": "Mid",
+    "This article is about a low or routine issue": "Low"
+}
+
 nlp = spacy.load("en_core_web_sm")
 nltk.download("punkt_tab")
 
@@ -186,7 +192,10 @@ def summarize_text(text, sentences_count=2):
 
 def classify_article(article):
     result = classifier(article, candidate_labels)
-    return result['labels'][0], result['scores'][0]  # Top label and score
+    long_label = result['labels'][0]  # Top-scoring label
+    score = result['scores'][0]
+    short_label = label_map.get(long_label, "Unknown")
+    return short_label, score
 
 # --------------------------
 # 0. List RSS to choose from

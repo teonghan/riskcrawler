@@ -8,6 +8,12 @@ from time import sleep
 import pandas as pd
 from io import StringIO
 
+# 8 Sep 2025: JSON for customGPT
+import json
+import hashlib
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timezone
+
 # Import NLTK for sentiment analysis
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
@@ -21,6 +27,49 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
+
+# 8 Sep 2025: JSON for customGPT
+def _safe_iso(pubdate: str) -> str | None:
+    """Convert RSS pubDate text to ISO-8601 Z; return None if unknown."""
+    try:
+        if not pubdate or pubdate == "No date":
+            return None
+        dt = parsedate_to_datetime(pubdate)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        return None
+
+def _make_id(title: str, link: str) -> str:
+    """Stable 16-char id from title+link."""
+    base = f"{title or ''}|{link or ''}"
+    return hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
+
+def articles_to_raw_json(articles: list[dict], include_content: bool = False) -> dict:
+    """
+    Convert scraped articles into a tidy JSON structure suitable for your Action.
+    Schema:
+      {
+        "asOf": "...Z",
+        "items": [{id,title,url,source,publishedAt,summary[,content]}]
+      }
+    """
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    items = []
+    for a in articles:
+        item = {
+            "id": _make_id(a.get("Title"), a.get("Link")),
+            "title": a.get("Title"),
+            "url": a.get("Link"),
+            "source": a.get("Source"),
+            "publishedAt": _safe_iso(a.get("Date")),
+            "summary": (a.get("Article") or "")[:400]  # short abstract
+        }
+        if include_content:
+            item["content"] = a.get("Article")
+        items.append(item)
+    return {"asOf": now_iso, "items": items}
 
 # Download VADER lexicon if not already downloaded
 # This is a one-time download and will be cached by Streamlit's @st.cache_resource
@@ -434,6 +483,22 @@ def main_app():
                 file_name="scraped_news_data.csv",
                 mime="text/csv",
                 help="Click to download the scraped data as a CSV file."
+            )
+            # ---- JSON export (raw) ----
+            st.markdown("### 🔽 Export as JSON")
+            include_full = st.checkbox(
+                "Include full article text in JSON (larger file size)", value=False
+            )
+
+            json_payload = articles_to_raw_json(st.session_state.scraped_data, include_content=include_full)
+            json_str_pretty = json.dumps(json_payload, ensure_ascii=False, indent=2)
+
+            st.download_button(
+                label="⬇️ Download Raw JSON",
+                data=json_str_pretty.encode("utf-8"),
+                file_name="latest_raw.json",
+                mime="application/json",
+                help="Exports a tidy JSON with asOf and items[] (id, title, url, source, publishedAt, summary, [content])."
             )
         elif not st.session_state.scraped_data and 'last_scraped_attempted' not in st.session_state:
             # Only show warning if no data and no previous attempt was made (initial load)

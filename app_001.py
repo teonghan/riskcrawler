@@ -9,8 +9,8 @@ import pandas as pd
 from io import StringIO
 
 # 8 Sep 2025: JSON for customGPT
-import json
-import hashlib
+import re, json, hashlib
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 
@@ -28,8 +28,36 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
-# 8 Sep 2025: JSON for customGPT
-def _safe_iso(pubdate: str) -> str | None:
+# ================== 8 Sep 2025: JSON for customGPT ==================
+
+# --- text + url cleanup -------------------------------------------------------
+_TRACKING_KEYS = {
+    "utm_source","utm_medium","utm_campaign","utm_term","utm_content",
+    "gclid","fbclid","mc_cid","mc_eid","igshid","mibextid"
+}
+
+def _clean_text(s: str | None) -> str:
+    """Trim, collapse whitespace, remove zero-width & NBSP."""
+    if not s:
+        return ""
+    s = str(s).replace("\xa0", " ").replace("\u200b", " ")
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+def _canonical_url(url: str | None) -> str | None:
+    """Strip common tracking params; keep scheme, netloc, path, essential query."""
+    if not url:
+        return None
+    try:
+        parts = urlsplit(url)
+        q = [(k, v) for (k, v) in parse_qsl(parts.query, keep_blank_values=False)
+             if k not in _TRACKING_KEYS]
+        new_query = urlencode(q, doseq=True)
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, ""))
+    except Exception:
+        return url
+
+def _safe_iso(pubdate: str | None) -> str | None:
     """Convert RSS pubDate text to ISO-8601 Z; return None if unknown."""
     try:
         if not pubdate or pubdate == "No date":
@@ -41,35 +69,115 @@ def _safe_iso(pubdate: str) -> str | None:
     except Exception:
         return None
 
-def _make_id(title: str, link: str) -> str:
+def _make_id(title: str | None, link: str | None) -> str:
     """Stable 16-char id from title+link."""
     base = f"{title or ''}|{link or ''}"
     return hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
 
-def articles_to_raw_json(articles: list[dict], include_content: bool = False) -> dict:
+def _ensure_nltk():
+    import nltk
+    needed = [("tokenizers/punkt", "punkt"), ("corpora/stopwords", "stopwords")]
+    for path, pkg in needed:
+        try:
+            nltk.data.find(path)
+        except LookupError:
+            nltk.download(pkg, quiet=True)
+
+def _summarize_nltk(text: str, max_chars: int = 240, max_sentences: int = 2) -> str:
     """
-    Convert scraped articles into a tidy JSON structure suitable for your Action.
+    Frequency-based extractive summary:
+    - scores sentences by non-stopword token frequency
+    - returns up to max_sentences, trimmed to max_chars (word boundary)
+    """
+    text = _clean_text(text)
+    if not text:
+        return ""
+    if len(text) <= max_chars:
+        return text
+
+    try:
+        import nltk
+        from nltk.corpus import stopwords
+        from nltk.tokenize import sent_tokenize, word_tokenize
+
+        _ensure_nltk()
+        # English + a small Malay/Indonesian overlay to improve local results
+        sw = set(stopwords.words("english")) | set(stopwords.words("indonesian"))
+        sw |= {"yang","dan","atau","untuk","kepada","dalam","dengan","itu","ini","tidak","ada","bagi","oleh","terhadap","akan","kerana","juga"}
+
+        sentences = sent_tokenize(text)
+        words = [w for w in word_tokenize(text.lower()) if w.isalpha() and w not in sw]
+
+        if not sentences or not words:
+            raise ValueError("Tokenization produced empty sets.")
+
+        # Frequency table
+        from collections import Counter
+        freq = Counter(words)
+
+        # Sentence scoring (length-normalized; slight early-sentence bias)
+        scores = []
+        for i, s in enumerate(sentences):
+            tokens = [w for w in word_tokenize(s.lower()) if w.isalpha()]
+            score = sum(freq.get(w, 0) for w in tokens)
+            score = score / (1 + len(tokens))
+            score *= 1.05 ** max(0, (len(sentences) - i))  # mild bias to earlier sents
+            scores.append((i, score))
+
+        keep = sorted(scores, key=lambda x: x[1], reverse=True)[:max(1, min(max_sentences, len(sentences)))]
+        keep_idx = sorted(i for i, _ in keep)
+        summary = " ".join(sentences[i] for i in keep_idx)
+        summary = _clean_text(summary)
+
+        if len(summary) > max_chars:
+            summary = summary[:max_chars].rsplit(" ", 1)[0] + "…"
+        return summary
+
+    except Exception:
+        # Fallback: neat truncation at word boundary
+        return (text[:max_chars].rsplit(" ", 1)[0] + "…") if len(text) > max_chars else text
+
+def articles_to_raw_json(
+    articles: list[dict],
+    include_content: bool = False,
+    max_items: int = 80,
+    max_summary_chars: int = 240,
+    max_summary_sentences: int = 2
+) -> dict:
+    """
+    Convert scraped articles into a compact JSON payload.
     Schema:
-      {
-        "asOf": "...Z",
+      { "asOf": "...Z",
         "items": [{id,title,url,source,publishedAt,summary[,content]}]
       }
     """
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     items = []
-    for a in articles:
+
+    for a in articles[:max_items]:
+        title = _clean_text(a.get("Title"))
+        url = _canonical_url(a.get("Link"))
+        source = _clean_text(a.get("Source"))
+        published = _safe_iso(a.get("Date"))
+        raw_text = _clean_text(a.get("Article"))
+
         item = {
-            "id": _make_id(a.get("Title"), a.get("Link")),
-            "title": a.get("Title"),
-            "url": a.get("Link"),
-            "source": a.get("Source"),
-            "publishedAt": _safe_iso(a.get("Date")),
-            "summary": (a.get("Article") or "")[:400]  # short abstract
+            "id": _make_id(title, url),
+            "title": title,
+            "url": url,
+            "source": source,
+            "publishedAt": published,
+            "summary": _summarize_nltk(raw_text, max_chars=max_summary_chars,
+                                       max_sentences=max_summary_sentences)
         }
         if include_content:
-            item["content"] = a.get("Article")
+            item["content"] = raw_text  # already cleaned; beware of size
+
         items.append(item)
+
     return {"asOf": now_iso, "items": items}
+
+# ================== 8 Sep 2025: JSON for customGPT ==================
 
 # Download VADER lexicon if not already downloaded
 # This is a one-time download and will be cached by Streamlit's @st.cache_resource
@@ -485,20 +593,20 @@ def main_app():
                 help="Click to download the scraped data as a CSV file."
             )
             # ---- JSON export (raw) ----
-            st.markdown("### 🔽 Export as JSON")
-            include_full = st.checkbox(
-                "Include full article text in JSON (larger file size)", value=False
-            )
+            payload = articles_to_raw_json(st.session_state.scraped_data,
+                               include_content=False,
+                               max_items=80,
+                               max_summary_chars=220,
+                               max_summary_sentences=2)
 
-            json_payload = articles_to_raw_json(st.session_state.scraped_data, include_content=include_full)
-            json_str_pretty = json.dumps(json_payload, ensure_ascii=False, indent=2)
+            json_bytes = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
+            # Streamlit download button
             st.download_button(
-                label="⬇️ Download Raw JSON",
-                data=json_str_pretty.encode("utf-8"),
-                file_name="latest_raw.json",
-                mime="application/json",
-                help="Exports a tidy JSON with asOf and items[] (id, title, url, source, publishedAt, summary, [content])."
+                "⬇️ Download Raw JSON (compact)",
+                data=json_bytes,
+                file_name="latest_raw_small.json",
+                mime="application/json"
             )
         elif not st.session_state.scraped_data and 'last_scraped_attempted' not in st.session_state:
             # Only show warning if no data and no previous attempt was made (initial load)
